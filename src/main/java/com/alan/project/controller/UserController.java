@@ -3,10 +3,12 @@ package com.alan.project.controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.plugins.pagination.PageDTO;
+import com.alan.project.annotation.AuthCheck;
 import com.alan.project.common.BaseResponse;
 import com.alan.project.common.DeleteRequest;
 import com.alan.project.common.ErrorCode;
 import com.alan.project.common.ResultUtils;
+import com.alan.project.constant.UserConstant;
 import com.alan.project.exception.BusinessException;
 import com.alan.project.model.dto.*;
 import com.alan.project.model.dto.user.*;
@@ -109,6 +111,36 @@ public class UserController {
 
     // endregion
 
+    /**
+     * 更新个人信息（当前登录用户，只能改昵称、头像、性别）
+     *
+     * @param userUpdateMyRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/update/my")
+    public BaseResponse<Boolean> updateMyUser(@RequestBody UserUpdateMyRequest userUpdateMyRequest,
+                                              HttpServletRequest request) {
+        if (userUpdateMyRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (userUpdateMyRequest.getUserName() != null && userUpdateMyRequest.getUserName().length() > 256) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "昵称过长");
+        }
+        User loginUser = userService.getLoginUser(request);
+        User user = new User();
+        BeanUtils.copyProperties(userUpdateMyRequest, user);
+        // 强制使用登录用户的 id，防止改到别人
+        user.setId(loginUser.getId());
+        boolean result = userService.updateById(user);
+        if (result) {
+            // 同步刷新 session 中的用户信息，否则全局状态（头像/昵称/水印）不会更新
+            User updatedUser = userService.getById(loginUser.getId());
+            request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, updatedUser);
+        }
+        return ResultUtils.success(result);
+    }
+
     // region 增删改查
 
     /**
@@ -118,6 +150,7 @@ public class UserController {
      * @param request
      * @return
      */
+    @AuthCheck(mustRole = "admin")
     @PostMapping("/add")
     public BaseResponse<Long> addUser(@RequestBody UserAddRequest userAddRequest, HttpServletRequest request) {
         if (userAddRequest == null) {
@@ -139,6 +172,7 @@ public class UserController {
      * @param request
      * @return
      */
+    @AuthCheck(mustRole = "admin")
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteUser(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
@@ -155,6 +189,7 @@ public class UserController {
      * @param request
      * @return
      */
+    @AuthCheck(mustRole = "admin")
     @PostMapping("/update")
     public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateRequest userUpdateRequest, HttpServletRequest request) {
         if (userUpdateRequest == null || userUpdateRequest.getId() == null) {

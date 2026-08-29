@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### 配置文件含密钥，不入库 ###
+src/main/resources/application.yml
+src/main/resources/application-prod.yml

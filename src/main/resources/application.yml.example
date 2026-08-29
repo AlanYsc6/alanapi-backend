@@ -1,0 +1,50 @@
+# 复制为 application.yml 后填入真实值
+
+spring:
+  application:
+    name: alanapi-backend
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://<数据库地址>:3306/<库名>
+    username: <数据库用户名>
+    password: <数据库密码>
+  mvc:
+    pathmatch:
+      matching-strategy: ANT_PATH_MATCHER
+  session:
+    timeout: 86400
+    store-type: redis
+  redis:
+    port: 6379
+    host: <redis 地址>
+    database: 0
+    password: <redis 密码>
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+# 火山引擎 TOS 对象存储
+tos:
+  endpoint: tos-cn-shanghai.volces.com
+  region: cn-shanghai
+  access-key: <TOS AK>
+  secret-key: <TOS SK>
+  bucket-name: <桶名>
+  # 自定义访问域名（可选）
+  domain:
+
+server:
+  port: 7529
+  servlet:
+    context-path: /api
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: false
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
