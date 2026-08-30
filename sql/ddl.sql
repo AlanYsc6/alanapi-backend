@@ -22,16 +22,12 @@ create table if not exists user
     updateTime   datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
     isDelete     tinyint      default 0                 not null comment '是否删除',
     constraint uni_userAccount
-        unique (userAccount)
+        unique (userAccount),
+    constraint uni_phone
+        unique (phone),
+    constraint uni_email
+        unique (email)
 ) comment '用户';
-
--- 如果 user 表已存在，可用以下增量 SQL 补充密钥字段（新建库无需执行）
--- alter table alan.user add column accessKey varchar(512) null comment '开放平台调用凭证 accessKey';
--- alter table alan.user add column secretKey varchar(512) null comment '开放平台密钥 secretKey（用于签名，需保密）';
--- alter table alan.user add column phone varchar(32) null comment '手机号（短信登录用）';
--- alter table alan.user add unique index uni_phone (phone);
--- alter table alan.user add column email varchar(256) null comment '邮箱（邮箱登录 / 重置密码用）';
--- alter table alan.user add unique index uni_email (email);
 
 -- 接口信息
 create table if not exists alan.`interface_info`
