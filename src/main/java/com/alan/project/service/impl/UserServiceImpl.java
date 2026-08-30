@@ -6,6 +6,7 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.alan.project.common.ErrorCode;
 import com.alan.project.exception.BusinessException;
+import com.alan.project.manager.MailManager;
 import com.alan.project.manager.SmsManager;
 import com.alan.project.mapper.UserMapper;
 import com.alan.project.model.entity.User;
@@ -38,6 +39,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Resource
     private SmsManager smsManager;
+
+    @Resource
+    private MailManager mailManager;
 
     /**
      * 盐值，混淆密码
@@ -151,6 +155,84 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 4. 记录用户的登录态
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
         return user;
+    }
+
+    /**
+     * 邮箱 + 验证码登录（用户不存在时自动注册）
+     *
+     * @param email   邮箱
+     * @param code    邮箱验证码
+     * @param request
+     * @return
+     */
+    @Override
+    public User userLoginByEmail(String email, String code, HttpServletRequest request) {
+        // 1. 校验参数
+        if (!mailManager.isValidEmail(email)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱格式不正确");
+        }
+        if (StringUtils.isBlank(code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码不能为空");
+        }
+        // 2. 校验验证码（后端生成存 Redis，校验通过后立即删除）
+        if (!mailManager.checkMailCode(email, MailManager.TYPE_LOGIN, code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码错误");
+        }
+        // 3. 查询用户，不存在则自动注册（邮箱即账号）
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("email", email);
+        User user = userMapper.selectOne(queryWrapper);
+        if (user == null) {
+            user = new User();
+            user.setEmail(email);
+            user.setUserAccount(email);
+            // 随机密码占位，邮箱验证码登录方式用不到密码
+            user.setUserPassword(DigestUtils.md5DigestAsHex((SALT + UUID.randomUUID()).getBytes()));
+            user.setUserName(StringUtils.substringBefore(email, "@"));
+            boolean saveResult = this.save(user);
+            if (!saveResult) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
+            }
+        }
+        // 4. 记录用户的登录态
+        request.getSession().setAttribute(USER_LOGIN_STATE, user);
+        return user;
+    }
+
+    /**
+     * 通过邮箱验证码重置密码（无需登录）
+     *
+     * @param email       邮箱
+     * @param code        邮箱验证码
+     * @param newPassword 新密码
+     * @return
+     */
+    @Override
+    public boolean resetUserPassword(String email, String code, String newPassword) {
+        // 1. 校验参数
+        if (!mailManager.isValidEmail(email)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱格式不正确");
+        }
+        if (StringUtils.isBlank(code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码不能为空");
+        }
+        if (StringUtils.isBlank(newPassword) || newPassword.length() < 8) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "新密码不能少于 8 位");
+        }
+        // 2. 校验验证码
+        if (!mailManager.checkMailCode(email, MailManager.TYPE_RESET, code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码错误");
+        }
+        // 3. 邮箱必须已绑定账号
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("email", email);
+        User user = userMapper.selectOne(queryWrapper);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "该邮箱未绑定账号");
+        }
+        // 4. 更新密码
+        user.setUserPassword(DigestUtils.md5DigestAsHex((SALT + newPassword).getBytes()));
+        return this.updateById(user);
     }
 
     /**

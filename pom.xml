@@ -68,6 +68,11 @@
             <artifactId>dypnsapi20170525</artifactId>
             <version>1.2.3</version>
         </dependency>
+        <!-- 邮件发送（邮箱登录 / 重置密码验证码） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
         <!-- 火山引擎 TOS 对象存储 SDK -->
         <dependency>
             <groupId>com.volcengine</groupId>

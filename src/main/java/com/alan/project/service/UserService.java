@@ -44,6 +44,26 @@ public interface UserService extends IService<User> {
     User userLoginByPhone(String phone, String code, HttpServletRequest request);
 
     /**
+     * 邮箱 + 验证码登录（用户不存在时自动注册）
+     *
+     * @param email   邮箱
+     * @param code    邮箱验证码
+     * @param request
+     * @return 登录用户信息
+     */
+    User userLoginByEmail(String email, String code, HttpServletRequest request);
+
+    /**
+     * 通过邮箱验证码重置密码（无需登录）
+     *
+     * @param email       邮箱
+     * @param code        邮箱验证码
+     * @param newPassword 新密码
+     * @return 是否重置成功
+     */
+    boolean resetUserPassword(String email, String code, String newPassword);
+
+    /**
      * 获取当前登录用户
      *
      * @param request

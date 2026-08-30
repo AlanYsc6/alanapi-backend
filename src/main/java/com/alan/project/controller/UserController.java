@@ -13,6 +13,7 @@ import com.alan.project.exception.BusinessException;
 import com.alan.project.model.dto.*;
 import com.alan.project.model.dto.user.*;
 import com.alan.project.model.entity.User;
+import com.alan.project.manager.MailManager;
 import com.alan.project.manager.SmsManager;
 import com.alan.project.model.vo.UserVO;
 import com.alan.project.service.UserService;
@@ -39,6 +40,9 @@ public class UserController {
 
     @Resource
     private SmsManager smsManager;
+
+    @Resource
+    private MailManager mailManager;
 
     // region 登录相关
 
@@ -127,6 +131,65 @@ public class UserController {
         User user = userService.userLoginByPhone(userLoginByPhoneRequest.getPhone(),
                 userLoginByPhoneRequest.getCode(), request);
         return ResultUtils.success(user);
+    }
+
+    /**
+     * 发送邮箱验证码
+     *
+     * @param email 邮箱
+     * @param type  验证码类型：login（邮箱登录）/ reset（重置密码）
+     * @return
+     */
+    @GetMapping("/mail/send")
+    public BaseResponse<Boolean> sendMailCode(String email, String type) {
+        // 重置密码场景要求邮箱已绑定账号，提前拦截避免泄露信息错误
+        if ("reset".equals(type)) {
+            if (!mailManager.isValidEmail(email)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱格式不正确");
+            }
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("email", email);
+            long count = userService.count(queryWrapper);
+            if (count <= 0) {
+                throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "该邮箱未绑定账号");
+            }
+        }
+        mailManager.sendMailCode(email, type);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 邮箱 + 验证码登录（用户不存在时自动注册）
+     *
+     * @param userEmailLoginRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/login/email")
+    public BaseResponse<User> userLoginByEmail(@RequestBody UserEmailLoginRequest userEmailLoginRequest,
+                                               HttpServletRequest request) {
+        if (userEmailLoginRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User user = userService.userLoginByEmail(userEmailLoginRequest.getEmail(),
+                userEmailLoginRequest.getCode(), request);
+        return ResultUtils.success(user);
+    }
+
+    /**
+     * 通过邮箱验证码重置密码（无需登录）
+     *
+     * @param userResetPasswordRequest
+     * @return
+     */
+    @PostMapping("/reset/password")
+    public BaseResponse<Boolean> resetUserPassword(@RequestBody UserResetPasswordRequest userResetPasswordRequest) {
+        if (userResetPasswordRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean result = userService.resetUserPassword(userResetPasswordRequest.getEmail(),
+                userResetPasswordRequest.getCode(), userResetPasswordRequest.getNewPassword());
+        return ResultUtils.success(result);
     }
 
     /**

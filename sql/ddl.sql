@@ -11,6 +11,7 @@ create table if not exists user
     userName     varchar(256)                           null comment '用户昵称',
     userAccount  varchar(256)                           not null comment '账号',
     phone        varchar(32)                            null comment '手机号（短信登录用）',
+    email        varchar(256)                           null comment '邮箱（邮箱登录 / 重置密码用）',
     userAvatar   varchar(1024)                          null comment '用户头像',
     gender       tinyint                                null comment '性别',
     userRole     varchar(256) default 'user'            not null comment '用户角色：user / admin',
@@ -29,6 +30,8 @@ create table if not exists user
 -- alter table alan.user add column secretKey varchar(512) null comment '开放平台密钥 secretKey（用于签名，需保密）';
 -- alter table alan.user add column phone varchar(32) null comment '手机号（短信登录用）';
 -- alter table alan.user add unique index uni_phone (phone);
+-- alter table alan.user add column email varchar(256) null comment '邮箱（邮箱登录 / 重置密码用）';
+-- alter table alan.user add unique index uni_email (email);
 
 -- 接口信息
 create table if not exists alan.`interface_info`
