@@ -62,6 +62,12 @@
             <artifactId>hutool-all</artifactId>
             <version>5.8.46</version>
         </dependency>
+        <!-- 阿里云号码认证服务（融合认证-短信认证）SDK -->
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>dypnsapi20170525</artifactId>
+            <version>1.2.3</version>
+        </dependency>
         <!-- 火山引擎 TOS 对象存储 SDK -->
         <dependency>
             <groupId>com.volcengine</groupId>

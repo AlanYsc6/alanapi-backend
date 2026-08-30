@@ -10,6 +10,7 @@ create table if not exists user
     id           bigint auto_increment comment 'id' primary key,
     userName     varchar(256)                           null comment '用户昵称',
     userAccount  varchar(256)                           not null comment '账号',
+    phone        varchar(32)                            null comment '手机号（短信登录用）',
     userAvatar   varchar(1024)                          null comment '用户头像',
     gender       tinyint                                null comment '性别',
     userRole     varchar(256) default 'user'            not null comment '用户角色：user / admin',
@@ -26,6 +27,8 @@ create table if not exists user
 -- 如果 user 表已存在，可用以下增量 SQL 补充密钥字段（新建库无需执行）
 -- alter table alan.user add column accessKey varchar(512) null comment '开放平台调用凭证 accessKey';
 -- alter table alan.user add column secretKey varchar(512) null comment '开放平台密钥 secretKey（用于签名，需保密）';
+-- alter table alan.user add column phone varchar(32) null comment '手机号（短信登录用）';
+-- alter table alan.user add unique index uni_phone (phone);
 
 -- 接口信息
 create table if not exists alan.`interface_info`

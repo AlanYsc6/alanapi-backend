@@ -34,6 +34,16 @@ public interface UserService extends IService<User> {
     User userLogin(String userAccount, String userPassword, HttpServletRequest request);
 
     /**
+     * 手机号 + 短信验证码登录（用户不存在时自动注册）
+     *
+     * @param phone   手机号
+     * @param code    短信验证码
+     * @param request
+     * @return 登录用户信息
+     */
+    User userLoginByPhone(String phone, String code, HttpServletRequest request);
+
+    /**
      * 获取当前登录用户
      *
      * @param request

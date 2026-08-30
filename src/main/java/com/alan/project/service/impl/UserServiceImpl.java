@@ -6,6 +6,7 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.alan.project.common.ErrorCode;
 import com.alan.project.exception.BusinessException;
+import com.alan.project.manager.SmsManager;
 import com.alan.project.mapper.UserMapper;
 import com.alan.project.model.entity.User;
 import com.alan.project.service.UserService;
@@ -16,6 +17,7 @@ import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.UUID;
 
 import static com.alan.project.constant.UserConstant.ADMIN_ROLE;
 import static com.alan.project.constant.UserConstant.USER_LOGIN_STATE;
@@ -33,6 +35,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Resource
     private UserMapper userMapper;
+
+    @Resource
+    private SmsManager smsManager;
 
     /**
      * 盐值，混淆密码
@@ -102,6 +107,48 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
         // 3. 记录用户的登录态
+        request.getSession().setAttribute(USER_LOGIN_STATE, user);
+        return user;
+    }
+
+    /**
+     * 手机号 + 短信验证码登录（用户不存在时自动注册）
+     *
+     * @param phone   手机号
+     * @param code    短信验证码
+     * @param request
+     * @return
+     */
+    @Override
+    public User userLoginByPhone(String phone, String code, HttpServletRequest request) {
+        // 1. 校验参数
+        if (!smsManager.isValidPhone(phone)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "手机号不合法");
+        }
+        if (StringUtils.isBlank(code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码不能为空");
+        }
+        // 2. 到阿里云校验验证码（验证码由阿里云生成和存储）
+        if (!smsManager.checkSmsVerifyCode(phone, code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码错误");
+        }
+        // 3. 查询用户，不存在则自动注册（手机号即账号）
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("phone", phone);
+        User user = userMapper.selectOne(queryWrapper);
+        if (user == null) {
+            user = new User();
+            user.setPhone(phone);
+            user.setUserAccount(phone);
+            // 随机密码占位，短信登录方式用不到密码
+            user.setUserPassword(DigestUtils.md5DigestAsHex((SALT + UUID.randomUUID()).getBytes()));
+            user.setUserName("用户" + StringUtils.right(phone, 4));
+            boolean saveResult = this.save(user);
+            if (!saveResult) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
+            }
+        }
+        // 4. 记录用户的登录态
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
         return user;
     }

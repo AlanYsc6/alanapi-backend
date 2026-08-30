@@ -13,6 +13,7 @@ import com.alan.project.exception.BusinessException;
 import com.alan.project.model.dto.*;
 import com.alan.project.model.dto.user.*;
 import com.alan.project.model.entity.User;
+import com.alan.project.manager.SmsManager;
 import com.alan.project.model.vo.UserVO;
 import com.alan.project.service.UserService;
 import org.apache.commons.lang3.StringUtils;
@@ -35,6 +36,9 @@ public class UserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private SmsManager smsManager;
 
     // region 登录相关
 
@@ -93,6 +97,36 @@ public class UserController {
         }
         boolean result = userService.userLogout(request);
         return ResultUtils.success(result);
+    }
+
+    /**
+     * 发送手机号登录短信验证码
+     *
+     * @param phone 手机号
+     * @return
+     */
+    @GetMapping("/sms/send")
+    public BaseResponse<Boolean> sendSmsCode(String phone) {
+        smsManager.sendSmsVerifyCode(phone);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 手机号 + 短信验证码登录（用户不存在时自动注册）
+     *
+     * @param userLoginByPhoneRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/login/phone")
+    public BaseResponse<User> userLoginByPhone(@RequestBody UserLoginByPhoneRequest userLoginByPhoneRequest,
+                                               HttpServletRequest request) {
+        if (userLoginByPhoneRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User user = userService.userLoginByPhone(userLoginByPhoneRequest.getPhone(),
+                userLoginByPhoneRequest.getCode(), request);
+        return ResultUtils.success(user);
     }
 
     /**
