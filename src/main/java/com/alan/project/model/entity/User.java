@@ -51,6 +51,16 @@ public class User implements Serializable {
     private String userPassword;
 
     /**
+     * 开放平台调用凭证 accessKey
+     */
+    private String accessKey;
+
+    /**
+     * 开放平台密钥 secretKey（用于签名，需保密）
+     */
+    private String secretKey;
+
+    /**
      * 创建时间
      */
     private Date createTime;

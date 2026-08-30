@@ -2,6 +2,8 @@ package com.alan.project.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.RandomUtil;
 import com.alan.project.common.ErrorCode;
 import com.alan.project.exception.BusinessException;
 import com.alan.project.mapper.UserMapper;
@@ -154,6 +156,30 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 移除登录态
         request.getSession().removeAttribute(USER_LOGIN_STATE);
         return true;
+    }
+
+    /**
+     * 生成（重新生成）用户的 accessKey / secretKey
+     *
+     * @param userId 用户 id
+     * @return
+     */
+    @Override
+    public User generateKeys(long userId) {
+        User user = this.getById(userId);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在");
+        }
+        User updateUser = new User();
+        updateUser.setId(userId);
+        // accessKey 相当于账号标识，短一点即可；secretKey 是签名密钥，用 32 位 UUID 保证随机性
+        updateUser.setAccessKey(RandomUtil.randomString(10));
+        updateUser.setSecretKey(IdUtil.fastSimpleUUID());
+        boolean result = this.updateById(updateUser);
+        if (!result) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成密钥失败，数据库错误");
+        }
+        return this.getById(userId);
     }
 
 }

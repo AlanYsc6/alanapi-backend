@@ -56,6 +56,12 @@
             <artifactId>commons-lang3</artifactId>
             <version>3.12.0</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/cn.hutool/hutool-all -->
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <version>5.8.46</version>
+        </dependency>
         <!-- 火山引擎 TOS 对象存储 SDK -->
         <dependency>
             <groupId>com.volcengine</groupId>

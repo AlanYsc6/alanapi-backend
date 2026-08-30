@@ -112,6 +112,23 @@ public class UserController {
     // endregion
 
     /**
+     * 生成（重新生成）当前登录用户的 accessKey / secretKey
+     *
+     * @param request
+     * @return 带有最新密钥的用户信息
+     */
+    @PostMapping("/generateKey")
+    public BaseResponse<UserVO> generateKey(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        User updatedUser = userService.generateKeys(loginUser.getId());
+        // 同步刷新 session 中的用户信息
+        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, updatedUser);
+        UserVO userVO = new UserVO();
+        BeanUtils.copyProperties(updatedUser, userVO);
+        return ResultUtils.success(userVO);
+    }
+
+    /**
      * 更新个人信息（当前登录用户，只能改昵称、头像、性别）
      *
      * @param userUpdateMyRequest

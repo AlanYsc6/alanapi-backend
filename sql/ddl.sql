@@ -14,12 +14,18 @@ create table if not exists user
     gender       tinyint                                null comment '性别',
     userRole     varchar(256) default 'user'            not null comment '用户角色：user / admin',
     userPassword varchar(512)                           not null comment '密码',
+    accessKey    varchar(512)                           null comment '开放平台调用凭证 accessKey',
+    secretKey    varchar(512)                           null comment '开放平台密钥 secretKey（用于签名，需保密）',
     createTime   datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
     updateTime   datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
     isDelete     tinyint      default 0                 not null comment '是否删除',
     constraint uni_userAccount
         unique (userAccount)
 ) comment '用户';
+
+-- 如果 user 表已存在，可用以下增量 SQL 补充密钥字段（新建库无需执行）
+-- alter table alan.user add column accessKey varchar(512) null comment '开放平台调用凭证 accessKey';
+-- alter table alan.user add column secretKey varchar(512) null comment '开放平台密钥 secretKey（用于签名，需保密）';
 
 -- 接口信息
 create table if not exists alan.`interface_info`

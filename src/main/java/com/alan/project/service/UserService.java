@@ -56,4 +56,12 @@ public interface UserService extends IService<User> {
      * @return
      */
     boolean userLogout(HttpServletRequest request);
+
+    /**
+     * 生成（重新生成）用户的 accessKey / secretKey
+     *
+     * @param userId 用户 id
+     * @return 更新后的用户信息
+     */
+    User generateKeys(long userId);
 }
