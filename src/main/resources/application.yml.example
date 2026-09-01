@@ -50,6 +50,11 @@ alan:
     port: 465
     username: <发件邮箱，如 xxx@qq.com>
     auth-code: <SMTP 授权码>
+  # 开放接口调用凭证（发布接口前试调用验证用，为 user 表中注册用户的 accessKey / secretKey，不配置时无法发布接口）
+  api:
+    access-key: <user 表中注册用户的 accessKey>
+    secret-key: <对应的 secretKey>
+    host: http://localhost:8123/api
 
 server:
   port: 7529

@@ -48,6 +48,9 @@ public class InterfaceInfoController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private AlanApiClient alanApiClient;
+
     // region 增删改查
 
     /**
@@ -224,10 +227,27 @@ public class InterfaceInfoController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         long id = idRequest.getId();
-        InterfaceInfo interfaceInfo = interfaceInfoService.getById(id);
-        if (interfaceInfo == null) {
+        // 判断是否存在
+        InterfaceInfo oldInterfaceInfo = interfaceInfoService.getById(id);
+        if (oldInterfaceInfo == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
+        // 判断该接口是否可以调用（发布前先试调用一次接口服务）
+        com.alan.alanapiclientsdk.model.User testUser = new com.alan.alanapiclientsdk.model.User();
+        testUser.setUsername("test");
+        String username;
+        try {
+            username = alanApiClient.getUsernameByPost(testUser);
+        } catch (Exception e) {
+            log.error("接口验证调用失败", e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口验证失败");
+        }
+        if (StringUtils.isBlank(username)) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口验证失败");
+        }
+        // 只更新状态列，避免回写其他字段
+        InterfaceInfo interfaceInfo = new InterfaceInfo();
+        interfaceInfo.setId(id);
         interfaceInfo.setStatus(InterfaceInfoStatusEnum.ONLINE.getValue());
         boolean result = interfaceInfoService.updateById(interfaceInfo);
         return ResultUtils.success(result);
@@ -246,10 +266,14 @@ public class InterfaceInfoController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         long id = idRequest.getId();
-        InterfaceInfo interfaceInfo = interfaceInfoService.getById(id);
-        if (interfaceInfo == null) {
+        // 判断是否存在
+        InterfaceInfo oldInterfaceInfo = interfaceInfoService.getById(id);
+        if (oldInterfaceInfo == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
+        // 只更新状态列，避免回写其他字段
+        InterfaceInfo interfaceInfo = new InterfaceInfo();
+        interfaceInfo.setId(id);
         interfaceInfo.setStatus(InterfaceInfoStatusEnum.OFFLINE.getValue());
         boolean result = interfaceInfoService.updateById(interfaceInfo);
         return ResultUtils.success(result);
