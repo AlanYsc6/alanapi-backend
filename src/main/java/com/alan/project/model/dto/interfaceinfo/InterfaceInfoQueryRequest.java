@@ -41,9 +41,9 @@ public class InterfaceInfoQueryRequest extends PageRequest implements Serializab
     private String requestHeader;
 
     /**
-     * 响应头
+     * 响应参数
      */
-    private String responseHeader;
+    private String responseParams;
 
     /**
      * 接口状态（0-关闭，1-开启）

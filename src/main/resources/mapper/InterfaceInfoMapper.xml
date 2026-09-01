@@ -11,7 +11,7 @@
             <result property="url" column="url" />
             <result property="requestParams" column="requestParams" />
             <result property="requestHeader" column="requestHeader" />
-            <result property="responseHeader" column="responseHeader" />
+            <result property="responseParams" column="responseParams" />
             <result property="status" column="status" />
             <result property="method" column="method" />
             <result property="userId" column="userId" />
@@ -22,7 +22,7 @@
 
     <sql id="Base_Column_List">
         id,name,description,url,requestParams,requestHeader,
-        responseHeader,status,method,userId,createTime,
+        responseParams,status,method,userId,createTime,
         updateTime,isDelete
     </sql>
 </mapper>
