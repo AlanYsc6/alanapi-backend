@@ -79,6 +79,12 @@
             <artifactId>ve-tos-java-sdk</artifactId>
             <version>2.9.19</version>
         </dependency>
+        <!-- alanapi 开放接口调用 SDK（invoke 接口用登录用户的 ak/sk 发起签名调用） -->
+        <dependency>
+            <groupId>com.alan</groupId>
+            <artifactId>alanapi-client-sdk</artifactId>
+            <version>0.0.1</version>
+        </dependency>
         <!-- https://doc.xiaominfo.com/knife4j/documentation/get_start.html-->
         <dependency>
             <groupId>com.github.xiaoymin</groupId>
