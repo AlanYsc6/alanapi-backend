@@ -118,6 +118,8 @@ public class InterfaceInfoController {
         }
         InterfaceInfo interfaceInfo = new InterfaceInfo();
         BeanUtils.copyProperties(interfaceInfoUpdateRequest, interfaceInfo);
+        // 状态只能通过 /online、/offline 修改，update 一律忽略，避免创建者绕过管理员自行发布
+        interfaceInfo.setStatus(null);
         // 参数校验
         interfaceInfoService.validInterfaceInfo(interfaceInfo, false);
         User user = userService.getLoginUser(request);
