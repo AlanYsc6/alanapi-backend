@@ -2,6 +2,7 @@ package com.alan.project.controller;
 
 import cn.hutool.json.JSONUtil;
 import com.alan.alanapiclientsdk.client.AlanApiClient;
+import com.alan.alanapiclientsdk.exception.ApiException;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.alan.project.annotation.AuthCheck;
@@ -238,6 +239,9 @@ public class InterfaceInfoController {
         String username;
         try {
             username = alanApiClient.getUsernameByPost(testUser);
+        } catch (ApiException e) {
+            log.error("接口验证调用失败, code: {}, message: {}", e.getCode(), e.getMessage());
+            throw new BusinessException(e.getCode(), e.getMessage());
         } catch (Exception e) {
             log.error("接口验证调用失败", e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口验证失败");
@@ -316,6 +320,10 @@ public class InterfaceInfoController {
             result = "GET".equalsIgnoreCase(interfaceInfo.getMethod())
                     ? alanApiClient.getNameByGet(name)
                     : alanApiClient.getNameByPost(name);
+        } catch (ApiException e) {
+            log.error("接口调用失败, interfaceInfoId = {}, code: {}, message: {}",
+                    interfaceInfo.getId(), e.getCode(), e.getMessage());
+            throw new BusinessException(e.getCode(), e.getMessage());
         } catch (Exception e) {
             log.error("接口调用失败, interfaceInfoId = {}", interfaceInfo.getId(), e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口调用失败");
