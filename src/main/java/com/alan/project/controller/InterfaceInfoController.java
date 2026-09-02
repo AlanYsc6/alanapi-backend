@@ -1,8 +1,13 @@
 package com.alan.project.controller;
 
+import cn.hutool.core.util.IdUtil;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
+import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.alan.alanapiclientsdk.client.AlanApiClient;
 import com.alan.alanapiclientsdk.exception.ApiException;
+import com.alan.alanapiclientsdk.utils.SignUtils;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.alan.project.annotation.AuthCheck;
@@ -29,7 +34,9 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.*;
 
@@ -49,8 +56,10 @@ public class InterfaceInfoController {
     @Resource
     private UserService userService;
 
-    @Resource
-    private AlanApiClient alanApiClient;
+    /**
+     * 接口服务统一响应中的成功 code（与 SDK AlanApiClient 的 SUCCESS_CODE 一致）
+     */
+    private static final int INTERFACE_SUCCESS_CODE = 200;
 
     // region 增删改查
 
@@ -219,11 +228,12 @@ public class InterfaceInfoController {
      * 发布（仅管理员可使用）
      *
      * @param idRequest
+     * @param request
      * @return
      */
     @AuthCheck(mustRole = "admin")
     @PostMapping("/online")
-    public BaseResponse<Boolean> onlineInterfaceInfo(@RequestBody IdRequest idRequest) {
+    public BaseResponse<Boolean> onlineInterfaceInfo(@RequestBody IdRequest idRequest, HttpServletRequest request) {
         if (idRequest == null || idRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -234,27 +244,105 @@ public class InterfaceInfoController {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
         // 判断该接口是否可以调用（发布前先试调用一次接口服务）
-        com.alan.alanapiclientsdk.model.User testUser = new com.alan.alanapiclientsdk.model.User();
-        testUser.setUsername("test");
-        String username;
-        try {
-            username = alanApiClient.getUsernameByPost(testUser);
-        } catch (ApiException e) {
-            log.error("接口验证调用失败, code: {}, message: {}", e.getCode(), e.getMessage());
-            throw new BusinessException(e.getCode(), e.getMessage());
-        } catch (Exception e) {
-            log.error("接口验证调用失败", e);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口验证失败");
-        }
-        if (StringUtils.isBlank(username)) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口验证失败");
-        }
+        invokeTest(oldInterfaceInfo, request);
         // 只更新状态列，避免回写其他字段
         InterfaceInfo interfaceInfo = new InterfaceInfo();
         interfaceInfo.setId(id);
         interfaceInfo.setStatus(InterfaceInfoStatusEnum.ONLINE.getValue());
         boolean result = interfaceInfoService.updateById(interfaceInfo);
         return ResultUtils.success(result);
+    }
+
+    /**
+     * 发布前的试调用验证：用当前操作管理员的 ak/sk 签名，按接口信息中的地址、请求类型和参数
+     * 构造真实请求调用接口服务，调用通过（统一响应 code = 200 且 data 非空）才允许发布上线
+     * <p>
+     * 试调用参数约定：
+     * 1. 请求体（requestBody）为 JSON 对象且非 GET 请求时，作为 JSON 请求体调用，如 {"username": "test"}
+     * 2. 否则从请求参数（requestParams）解析 JSON 对象作为表单参数，如 {"name": "test"}；
+     *    表单接口参与签名的是第一个参数的值（与接口服务端 @SignCheck(bodyParam) 的约定一致）
+     */
+    private void invokeTest(InterfaceInfo interfaceInfo, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        String accessKey = loginUser.getAccessKey();
+        String secretKey = loginUser.getSecretKey();
+        if (StringUtils.isAnyBlank(accessKey, secretKey)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_ERROR, "当前账号缺少开放平台调用凭证，无法完成发布验证");
+        }
+        String url = interfaceInfo.getUrl();
+        if (StringUtils.isBlank(url)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "接口地址为空，无法完成发布验证");
+        }
+        boolean isGet = "GET".equalsIgnoreCase(interfaceInfo.getMethod());
+        // 解析试调用参数：优先 JSON 请求体，其次 JSON 表单参数
+        String jsonBody = null;
+        JSONObject formParams = null;
+        String requestBody = interfaceInfo.getRequestBody();
+        if (!isGet && StringUtils.isNotBlank(requestBody) && JSONUtil.isTypeJSONObject(requestBody)) {
+            jsonBody = requestBody;
+        }
+        if (jsonBody == null) {
+            String requestParams = interfaceInfo.getRequestParams();
+            if (StringUtils.isNotBlank(requestParams) && JSONUtil.isTypeJSONObject(requestParams)) {
+                formParams = JSONUtil.parseObj(requestParams);
+            }
+            if (formParams == null || formParams.isEmpty()) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR,
+                        "无法构造试调用参数，请在接口的请求参数或请求体中填写 JSON 格式的示例参数");
+            }
+        }
+        // 参与签名的 body：JSON 请求签原始 JSON 串，表单请求签第一个参数值
+        String signBody;
+        if (jsonBody != null) {
+            signBody = jsonBody;
+        } else {
+            Object firstParamValue = formParams.values().iterator().next();
+            signBody = firstParamValue == null ? "" : String.valueOf(firstParamValue);
+        }
+        // 构造签名请求头，secretKey 只参与本地签名计算，不随请求发送
+        Map<String, String> signParams = new HashMap<>();
+        signParams.put("accessKey", accessKey);
+        signParams.put("body", signBody);
+        signParams.put("nonce", IdUtil.simpleUUID());
+        signParams.put("timestamp", String.valueOf(System.currentTimeMillis() / 1000));
+        String sign = SignUtils.genSign(signParams, secretKey);
+        // 按接口信息构造请求
+        HttpRequest httpRequest = isGet ? HttpRequest.get(url) : HttpRequest.post(url);
+        if (jsonBody != null) {
+            httpRequest.body(jsonBody);
+        } else {
+            httpRequest.form(formParams);
+        }
+        httpRequest.header("accessKey", accessKey);
+        httpRequest.header("nonce", signParams.get("nonce"));
+        httpRequest.header("timestamp", signParams.get("timestamp"));
+        httpRequest.header("sign", sign);
+        httpRequest.setConnectionTimeout(5000);
+        httpRequest.setReadTimeout(10000);
+        // 发送并解析服务端的统一响应结构
+        String responseBody;
+        try (HttpResponse response = httpRequest.execute()) {
+            responseBody = response.body();
+        } catch (Exception e) {
+            log.error("发布验证调用失败, interfaceInfoId = {}, url = {}", interfaceInfo.getId(), url, e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口验证失败：无法连接接口服务");
+        }
+        if (responseBody == null || !JSONUtil.isTypeJSONObject(responseBody)) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,
+                    "接口验证失败：接口响应格式异常，请检查接口地址 " + url + " 是否正确");
+        }
+        JSONObject result = JSONUtil.parseObj(responseBody);
+        int code = result.getInt("code", -1);
+        if (code != INTERFACE_SUCCESS_CODE) {
+            log.error("发布验证调用失败, interfaceInfoId = {}, url = {}, code = {}, message = {}",
+                    interfaceInfo.getId(), url, code, result.getStr("message"));
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口验证失败：" + result.getStr("message", ""));
+        }
+        if (StringUtils.isBlank(result.getStr("data"))) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口验证失败：接口返回数据为空");
+        }
+        log.info("发布验证调用通过, interfaceInfoId = {}, url = {}, data = {}",
+                interfaceInfo.getId(), url, result.getStr("data"));
     }
 
     /**
