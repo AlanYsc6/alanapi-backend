@@ -66,7 +66,37 @@ public class TosFileManager {
                 new SimpleDateFormat("yyyyMM").format(new Date()),
                 UUID.randomUUID().toString().replace("-", ""),
                 extension);
-        // 3. 上传
+        return upload(file, key, contentType);
+    }
+
+    /**
+     * 上传通用文件（SDK 包等，不限制文件类型），返回可公开访问的 URL
+     *
+     * @param file 待上传文件
+     * @param dir  存储目录（如 sdk）
+     * @return 文件 URL
+     */
+    public String uploadFile(MultipartFile file, String dir) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件为空");
+        }
+        String contentType = StringUtils.defaultIfBlank(file.getContentType(), "application/octet-stream");
+        String originalFilename = file.getOriginalFilename();
+        String extension = originalFilename != null && originalFilename.lastIndexOf('.') >= 0
+                ? StringUtils.lowerCase(originalFilename.substring(originalFilename.lastIndexOf('.') + 1))
+                : "";
+        String key = String.format("%s/%s/%s%s",
+                dir,
+                new SimpleDateFormat("yyyyMM").format(new Date()),
+                UUID.randomUUID().toString().replace("-", ""),
+                StringUtils.isNotBlank(extension) ? "." + extension : "");
+        return upload(file, key, contentType);
+    }
+
+    /**
+     * 上传到 TOS 并拼接访问地址
+     */
+    private String upload(MultipartFile file, String key, String contentType) {
         try (InputStream inputStream = file.getInputStream()) {
             PutObjectInput input = new PutObjectInput();
             input.setBucket(tosConfig.getBucketName());
@@ -79,7 +109,6 @@ public class TosFileManager {
             log.error("文件上传到 TOS 失败, key = {}", key, e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "文件上传失败");
         }
-        // 4. 拼接访问地址
         String baseUrl = StringUtils.isNotBlank(tosConfig.getDomain())
                 ? tosConfig.getDomain()
                 : String.format("https://%s.%s", tosConfig.getBucketName(), tosConfig.getEndpoint());
