@@ -36,16 +36,6 @@ public class InterfaceInfoQueryRequest extends PageRequest implements Serializab
     private String url;
 
     /**
-     * 请求头
-     */
-    private String requestHeader;
-
-    /**
-     * 响应参数
-     */
-    private String responseParams;
-
-    /**
      * 接口状态（0-关闭，1-开启）
      */
     private Integer status;

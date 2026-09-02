@@ -30,12 +30,16 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
         String description = interfaceInfo.getDescription();
         String url = interfaceInfo.getUrl();
         String requestParams = interfaceInfo.getRequestParams();
+        String requestBody = interfaceInfo.getRequestBody();
         String method = interfaceInfo.getMethod();
         Integer status = interfaceInfo.getStatus();
-        // 创建时，核心参数必须非空
+        // 创建时，核心参数必须非空，请求参数与请求体至少填一项
         if (add) {
-            if (StringUtils.isAnyBlank(name, url, requestParams, method)) {
+            if (StringUtils.isAnyBlank(name, url, method)) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR);
+            }
+            if (StringUtils.isBlank(requestParams) && StringUtils.isBlank(requestBody)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数与请求体至少填写一项");
             }
         }
         if (StringUtils.isNotBlank(name) && name.length() > 50) {
