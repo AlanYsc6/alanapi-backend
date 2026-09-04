@@ -24,6 +24,7 @@ import com.alan.project.model.entity.InterfaceInfo;
 import com.alan.project.model.entity.User;
 import com.alan.project.model.enums.InterfaceInfoStatusEnum;
 import com.alan.project.service.InterfaceInfoService;
+import com.alan.project.service.InvokeLogService;
 import com.alan.project.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -53,6 +54,9 @@ public class InterfaceInfoController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private InvokeLogService invokeLogService;
 
     /**
      * 接口服务统一响应中的成功 code（与 SDK AlanApiClient 的 SUCCESS_CODE 一致）
@@ -386,20 +390,31 @@ public class InterfaceInfoController {
         if (interfaceInfoInvokeRequest == null || interfaceInfoInvokeRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        // 先取登录用户，拒绝场景的失败日志需要记录调用者
+        User loginUser = userService.getLoginUser(request);
         InterfaceInfo interfaceInfo = interfaceInfoService.getById(interfaceInfoInvokeRequest.getId());
         if (interfaceInfo == null) {
+            invokeLogService.recordRejected(interfaceInfoInvokeRequest.getId(), loginUser.getId(),
+                    request.getRequestURI(), request.getMethod(),
+                    interfaceInfoInvokeRequest.getUserRequestParams(), "接口不存在，调用被平台拒绝");
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
         if (!Objects.equals(interfaceInfo.getStatus(), InterfaceInfoStatusEnum.ONLINE.getValue())) {
+            invokeLogService.recordRejected(interfaceInfo.getId(), loginUser.getId(),
+                    interfaceInfo.getUrl(), interfaceInfo.getMethod(),
+                    interfaceInfoInvokeRequest.getUserRequestParams(), "接口已下线，调用被平台拒绝");
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "接口已下线");
         }
-        User loginUser = userService.getLoginUser(request);
         String accessKey = loginUser.getAccessKey();
         String secretKey = loginUser.getSecretKey();
         if (StringUtils.isAnyBlank(accessKey, secretKey)) {
+            invokeLogService.recordRejected(interfaceInfo.getId(), loginUser.getId(),
+                    interfaceInfo.getUrl(), interfaceInfo.getMethod(),
+                    interfaceInfoInvokeRequest.getUserRequestParams(), "缺少开放平台调用凭证");
             throw new BusinessException(ErrorCode.FORBIDDEN_ERROR, "缺少开放平台调用凭证");
         }
-        String result = doInvoke(interfaceInfo, interfaceInfoInvokeRequest.getUserRequestParams(), accessKey, secretKey);
+        String result = doInvoke(interfaceInfo, interfaceInfoInvokeRequest.getUserRequestParams(),
+                accessKey, secretKey, loginUser.getId());
         return ResultUtils.success(result);
     }
 
@@ -411,7 +426,7 @@ public class InterfaceInfoController {
      * 1. 传入 JSON 对象且非 GET 请求时，作为 JSON 请求体发送，如 {"username": "test"}
      * 2. 否则将参数整体作为第一个表单参数 name 发送（兼容当前的 name 系列接口）
      */
-    private String doInvoke(InterfaceInfo interfaceInfo, String userRequestParams, String accessKey, String secretKey) {
+    private String doInvoke(InterfaceInfo interfaceInfo, String userRequestParams, String accessKey, String secretKey, long userId) {
         String url = interfaceInfo.getUrl();
         if (StringUtils.isBlank(url)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "接口地址为空");
@@ -461,9 +476,14 @@ public class InterfaceInfoController {
             responseBody = response.body();
         } catch (Exception e) {
             log.error("在线调用失败, interfaceInfoId = {}, url = {}", interfaceInfo.getId(), url, e);
+            // 连接失败时请求未到达接口服务（服务侧无法留痕），由平台侧补记失败日志
+            invokeLogService.recordRejected(interfaceInfo.getId(), userId, url, interfaceInfo.getMethod(),
+                    userRequestParams, "接口调用失败：无法连接接口服务");
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口调用失败：无法连接接口服务");
         }
         if (responseBody == null || !JSONUtil.isTypeJSONObject(responseBody)) {
+            invokeLogService.recordRejected(interfaceInfo.getId(), userId, url, interfaceInfo.getMethod(),
+                    userRequestParams, "接口调用失败：接口响应格式异常");
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口调用失败：接口响应格式异常");
         }
         JSONObject result = JSONUtil.parseObj(responseBody);
