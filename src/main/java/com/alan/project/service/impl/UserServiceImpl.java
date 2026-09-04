@@ -305,6 +305,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
+     * 注销账号：逻辑删除当前登录账号并清除登录态（管理员账号不支持自行注销）
+     */
+    @Override
+    public boolean userCancel(User loginUser, HttpServletRequest request) {
+        if (loginUser == null || loginUser.getId() == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        if (ADMIN_ROLE.equals(loginUser.getUserRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_ERROR, "管理员账号不支持自行注销");
+        }
+        boolean result = this.removeById(loginUser.getId());
+        if (result) {
+            // 注销后立即清除登录态，本次会话不再可用
+            request.getSession().removeAttribute(USER_LOGIN_STATE);
+        }
+        return result;
+    }
+
+    /**
      * 生成（重新生成）用户的 accessKey / secretKey
      *
      * @param userId 用户 id

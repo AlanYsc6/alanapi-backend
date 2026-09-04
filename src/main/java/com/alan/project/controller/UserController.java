@@ -236,6 +236,19 @@ public class UserController {
     }
 
     /**
+     * 注销账号（用户自行注销，逻辑删除当前账号并退出登录；管理员账号不支持）
+     *
+     * @param request
+     * @return
+     */
+    @PostMapping("/cancel")
+    public BaseResponse<Boolean> userCancel(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        boolean result = userService.userCancel(loginUser, request);
+        return ResultUtils.success(result);
+    }
+
+    /**
      * 更新个人信息（当前登录用户，只能改昵称、头像、性别）
      *
      * @param userUpdateMyRequest

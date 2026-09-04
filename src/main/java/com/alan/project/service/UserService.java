@@ -88,6 +88,15 @@ public interface UserService extends IService<User> {
     boolean userLogout(HttpServletRequest request);
 
     /**
+     * 注销账号：逻辑删除当前登录账号并清除登录态（管理员账号不支持自行注销）
+     *
+     * @param loginUser 当前登录用户
+     * @param request
+     * @return 是否注销成功
+     */
+    boolean userCancel(User loginUser, HttpServletRequest request);
+
+    /**
      * 生成（重新生成）用户的 accessKey / secretKey
      *
      * @param userId 用户 id
