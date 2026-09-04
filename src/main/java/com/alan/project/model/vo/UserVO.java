@@ -43,6 +43,16 @@ public class UserVO implements Serializable {
     private String userRole;
 
     /**
+     * 账号状态（0-正常，1-冻结）
+     */
+    private Integer userStatus;
+
+    /**
+     * 剩余可调用次数（全部已开通接口之和，管理页展示用，其余场景为 null）
+     */
+    private Long leftNum;
+
+    /**
      * 开放平台调用凭证 accessKey
      */
     private String accessKey;

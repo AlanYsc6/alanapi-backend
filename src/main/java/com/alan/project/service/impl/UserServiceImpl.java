@@ -110,6 +110,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             log.info("user login failed, userAccount cannot match userPassword");
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
+        // 冻结账号禁止登录
+        checkUserFrozen(user);
         // 3. 记录用户的登录态
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
         return user;
@@ -152,6 +154,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
             }
         }
+        // 冻结账号禁止登录
+        checkUserFrozen(user);
         // 4. 记录用户的登录态
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
         return user;
@@ -194,6 +198,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
             }
         }
+        // 冻结账号禁止登录
+        checkUserFrozen(user);
         // 4. 记录用户的登录态
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
         return user;
@@ -255,7 +261,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (currentUser == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
+        // 冻结账号的存量会话在各请求鉴权时直接拦截
+        checkUserFrozen(currentUser);
         return currentUser;
+    }
+
+    /**
+     * 账号冻结校验：冻结用户禁止登录，已登录的存量会话也会被拦截
+     */
+    private void checkUserFrozen(User user) {
+        if (user != null && user.getUserStatus() != null && user.getUserStatus() == 1) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_ERROR, "该账号已被冻结，请联系管理员");
+        }
     }
 
     /**

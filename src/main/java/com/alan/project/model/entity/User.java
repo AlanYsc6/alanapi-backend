@@ -61,6 +61,11 @@ public class User implements Serializable {
     private String userPassword;
 
     /**
+     * 账号状态（0-正常，1-冻结）
+     */
+    private Integer userStatus;
+
+    /**
      * 开放平台调用凭证 accessKey
      */
     private String accessKey;

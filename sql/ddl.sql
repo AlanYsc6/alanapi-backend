@@ -16,6 +16,7 @@ create table if not exists user
     gender       tinyint                                null comment '性别',
     userRole     varchar(256) default 'user'            not null comment '用户角色：user / admin',
     userPassword varchar(512)                           not null comment '密码',
+    userStatus   int          default 0                 not null comment '账号状态（0-正常，1-冻结）',
     accessKey    varchar(512)                           null comment '开放平台调用凭证 accessKey',
     secretKey    varchar(512)                           null comment '开放平台密钥 secretKey（用于签名，需保密）',
     createTime   datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
@@ -59,8 +60,26 @@ create table if not exists alan.`user_interface_info`
     `status` int default 0 not null comment '0-正常，1-禁用',
     `createTime` datetime default CURRENT_TIMESTAMP not null comment '创建时间',
     `updateTime` datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
-    `isDelete` tinyint default 0 not null comment '是否删除'
+    `isDelete` tinyint default 0 not null comment '是否删除',
+    -- 同一用户对同一接口仅一条调用关系，支撑调用计数（接口服务验签后原子扣次 + 首调自动开通）
+    unique key `uk_user_interface` (`userId`, `interfaceInfoId`)
 ) comment '用户调用接口关系';
+
+-- 接口调用日志表（接口服务在每次实际调用后写入，平台侧仅查询）
+create table if not exists alan.`invoke_log`
+(
+    `id` bigint not null auto_increment comment '主键' primary key,
+    `userId` bigint not null comment '调用用户 id',
+    `interfaceInfoId` bigint not null comment '接口 id（0-平台未登记的接口）',
+    `requestPath` varchar(512) null comment '请求路径',
+    `requestMethod` varchar(16) null comment '请求方式',
+    `requestParams` text null comment '请求参数',
+    `responseBody` text null comment '响应数据',
+    `status` int default 0 not null comment '调用状态（0-失败，1-成功）',
+    `costTime` bigint default 0 not null comment '耗时（毫秒）',
+    `createTime` datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    `isDelete` tinyint default 0 not null comment '是否删除'
+) comment '接口调用日志';
 
 -- 首页文档
 create table if not exists alan.`doc`

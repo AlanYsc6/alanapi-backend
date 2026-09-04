@@ -1,5 +1,6 @@
 package com.alan.project.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.plugins.pagination.PageDTO;
@@ -13,17 +14,23 @@ import com.alan.project.exception.BusinessException;
 import com.alan.project.model.dto.*;
 import com.alan.project.model.dto.user.*;
 import com.alan.project.model.entity.User;
+import com.alan.project.model.entity.UserInterfaceInfo;
 import com.alan.project.manager.MailManager;
 import com.alan.project.manager.SmsManager;
 import com.alan.project.model.vo.UserVO;
 import com.alan.project.service.UserService;
+import com.alan.project.service.UserInterfaceInfoService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -37,6 +44,9 @@ public class UserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private UserInterfaceInfoService userInterfaceInfoService;
 
     @Resource
     private SmsManager smsManager;
@@ -309,6 +319,15 @@ public class UserController {
         if (userUpdateRequest == null || userUpdateRequest.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        Integer userStatus = userUpdateRequest.getUserStatus();
+        if (userStatus != null && !Objects.equals(userStatus, 0) && !Objects.equals(userStatus, 1)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号状态不合法");
+        }
+        // 管理员不能冻结自己，避免把自己锁在管理页外面
+        User loginUser = userService.getLoginUser(request);
+        if (Objects.equals(userStatus, 1) && loginUser.getId().equals(userUpdateRequest.getId())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "不能冻结当前登录账号");
+        }
         User user = new User();
         BeanUtils.copyProperties(userUpdateRequest, user);
         boolean result = userService.updateById(user);
@@ -381,8 +400,28 @@ public class UserController {
             BeanUtils.copyProperties(user, userVO);
             return userVO;
         }).collect(Collectors.toList());
+        // 补充每个用户的剩余可调用次数（名下全部已开通接口之和）
+        fillLeftNum(userVOList);
         userVOPage.setRecords(userVOList);
         return ResultUtils.success(userVOPage);
+    }
+
+    /**
+     * 批量填充用户剩余可调用次数
+     */
+    private void fillLeftNum(List<UserVO> userVOList) {
+        if (CollectionUtils.isEmpty(userVOList)) {
+            return;
+        }
+        Set<Long> userIds = userVOList.stream()
+                .map(UserVO::getId).collect(Collectors.toSet());
+        LambdaQueryWrapper<UserInterfaceInfo> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.in(UserInterfaceInfo::getUserId, userIds);
+        Map<Long, Integer> leftNumMap = userInterfaceInfoService.list(queryWrapper).stream()
+                .collect(Collectors.groupingBy(UserInterfaceInfo::getUserId,
+                        Collectors.summingInt(info -> info.getLeftNum() == null ? 0 : info.getLeftNum())));
+        userVOList.forEach(userVO -> userVO.setLeftNum(
+                leftNumMap.getOrDefault(userVO.getId(), 0).longValue()));
     }
 
     // endregion
