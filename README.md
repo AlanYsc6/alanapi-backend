@@ -47,7 +47,7 @@ mysql -uroot -p < sql/ddl.sql
 mvn spring-boot:run
 ```
 
-前置依赖：JDK 8+、MySQL 8、Redis。接口管理里的示例接口依赖 [alanapi-interface](../alanapi-interface)（localhost:8123）在线。
+前置依赖：JDK 8+、MySQL 8、Redis。接口管理里的示例接口依赖 [alanapi-interface](https://github.com/AlanYsc6/alanapi-interface)（localhost:8123）在线。
 
 ## 主要接口
 
@@ -65,6 +65,6 @@ mvn spring-boot:run
 
 ## 相关项目
 
-- [alanapi-interface](../alanapi-interface)：接口服务（验签、计数、日志的实际执行方）
-- [alanapi-client-sdk](../alanapi-client-sdk)：客户端 SDK
-- [alanapi-frontend](../alanapi-frontend)：Web 前端
+- [alanapi-interface](https://github.com/AlanYsc6/alanapi-interface)：接口服务（验签、计数、日志的实际执行方）
+- [alanapi-client-sdk](https://github.com/AlanYsc6/alanapi-client-sdk)：客户端 SDK
+- [alanapi-frontend](https://github.com/AlanYsc6/alanapi-frontend)：Web 前端
